@@ -1,0 +1,447 @@
+package com.proview.epmm2.tests;
+
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.testng.Assert;
+import org.testng.annotations.Test;
+
+import com.proview.Configuration;
+import com.proview.TestEnvironment;
+import com.proview.epmm.pages.AddPracticeLocationsPage;
+import com.proview.epmm.pages.EPMAddProviderPage;
+import com.proview.epmm.pages.EPMHomePage;
+import com.proview.epmm.pages.GroupProfilePage;
+import com.proview.epmm.pages.PracticeLibraryPage;
+import com.proview.epmm.pages.PracticeLocationDetailsPage;
+import com.proview.epmm2.pages.data.EPMMDataProvider;
+import com.proview.epmm2.pages.data.FileGenerator;
+import com.proview.epmm2.pages.impl.EPMHome;
+import com.proview.practicemgr.pages.PMLoginPage;
+import com.proview.util.Constants;
+import com.proview.util.DBUtil;
+import com.proview.util.Util;
+
+public class EPMMHomeTest extends EPMM2TestBase {
+	@Test(description = "PVRV-4918,Review&Attest button in all the pages in EPMM portal", groups = "epmm2_regression", dataProvider = "VCM", dataProviderClass = EPMMDataProvider.class)
+	public void verifyReviewAndConfirmSection(String userName, String password) throws Exception {
+		PMLoginPage loginPage = browser.getPMLoginPage();
+		home = getEPMHome(loginPage.loginToPM(userName, password, false));
+		check.assertTrue(home.verifyReviewAndConfirmSection(), "Review and confirm section is not displayed properly");
+		home.openGroupDetails();
+		check.assertTrue(home.verifyReviewAndConfirmSection(), "Review and confirm section is not displayed properly");
+		ourTeam = home.openOurTeam();
+		check.assertTrue(home.verifyReviewAndConfirmSection(), "Review and confirm section is not displayed properly");
+		home.openOurPracticeLocations();
+		check.assertTrue(home.verifyReviewAndConfirmSection(), "Review and confirm section is not displayed properly");
+		addPracticeLocation = home.openAddPracticeLocations();
+		check.assertTrue(home.verifyReviewAndConfirmSection(), "Review and confirm section is not displayed properly");
+		ourProviders = home.openOurProviders();
+		check.assertTrue(home.verifyReviewAndConfirmSection(), "Review and confirm section is not displayed properly");
+		//Map<String, String> searchCriteria = new HashMap<String, String>();
+		//searchCriteria.put("proview_status", "Initial Profile Complete");
+		providerGroupOwnedProfile = ourProviders.goToProviderDetails(ourProviders.getTable().get(1));
+		check.assertTrue(home.verifyReviewAndConfirmSection(), "Review and confirm section is not displayed properly");
+		providerGroupOwnedProfile.clickLocationArrow();
+		providerGroupOwnedProfile.openPracticeLocation();
+		check.assertTrue(home.verifyReviewAndConfirmSection(), "Review and confirm section is not displayed properly");
+		home.openAddPlans();
+		check.assertTrue(home.verifyReviewAndConfirmSection(), "Review and confirm section is not displayed properly");
+		home.openManagePlans();
+		check.assertTrue(home.verifyReviewAndConfirmSection(), "Review and confirm section is not displayed properly");
+		check.assertAll();
+	}
+
+	@Test(description = "PVRV-4960", groups = {"epmm2_regression","Epmm_Smoke"}, dataProvider = "VCM", dataProviderClass = EPMMDataProvider.class)
+	public void verifyMyGroupOnProviders(String userName, String password) throws Exception {
+		PMLoginPage loginPage = browser.getPMLoginPage();
+		home = getEPMHome(loginPage.loginToPM(userName, password, false));
+		home.refreshBrowser();
+		boolean popup = home.clickOnReviewAndConfirmButton();
+		check.assertEquals(popup, true, "Review and Confirm Popup is not present");
+		Map<String, Boolean> areCompLoaded = home.areComponentsLoaded();
+		check.assertTrue(areCompLoaded.get("isCrossButtonPresent"), "Cross Button is not present");
+		check.assertTrue(areCompLoaded.get("isGoBackButtonPresent"), "Go Back Button is not present");
+		check.assertTrue(areCompLoaded.get("isYesContinueButtonPresent"), "Yes, Continue Button is not present");
+		String popupText = home.capturePopupText();
+		check.assertEquals(popupText,
+				"This action will confirm the complete eligible provider profiles and be sent to the "
+						+ "participating organizations to see your updated data.",
+				"Incorrect Popup Text");
+		boolean reviewAndConfirmPopup = home.clickOnCrossButton();
+		check.assertEquals(reviewAndConfirmPopup, false, "Review and confirm popup is Present");
+		boolean confirmPopup = home.clickOnGoBackButton();
+		check.assertEquals(confirmPopup, false, "Review and confirm popup is Present");
+		boolean snackBar = home.clickOnYesContinueButton();
+		check.assertTrue(snackBar, "Snack Success Bar is not Present");
+		String lastConfirmedDate = home.checkLastConfirmedDate();
+		check.assertTrue(lastConfirmedDate.contains(home.systemDate()), "Incorrect Last System Date");
+		activityLog = home.openActivityLog();
+		Map activityslogs = activityLog.getActivityLogs("Manager User confirmed");
+		String subject = (String) activityslogs.get("Subject");
+		String acitvityDate = (String) activityslogs.get("Date");
+		check.assertTrue(subject.contains("Manager User confirmed group roster"), "Incorrect Activity Subject");
+		Date date = Calendar.getInstance().getTime();
+		DateFormat dateFormat = new SimpleDateFormat("MM/dd/yyyy");
+		String strDate = dateFormat.format(date);
+		check.assertEquals(acitvityDate.contains(strDate), true, "Incorrect Date");
+		check.assertAll();
+	}
+
+	@Test(description = "PVRV-4917", groups = "epmm2_regression", dataProvider = "VCM", dataProviderClass = EPMMDataProvider.class)
+	public void verifySeeHistory(String userName, String password) throws Exception {
+		PMLoginPage loginPage = browser.getPMLoginPage();
+		home = getEPMHome(loginPage.loginToPM(userName, password, false));
+		if(home.cancelSnapshotRosterGeneration())
+		home.clickOnReviewConfirmButton();
+		boolean confirmationPopup = home.clickOnSeeHistoryButton();
+		check.assertTrue(confirmationPopup, "Confrimation Popup is not Present");
+		Map<String, Boolean> areCompLoaded = home.areConfirmationPopupCompLoaded();
+		check.assertTrue(areCompLoaded.get("isConfrimationCrossButtonPresent"),
+				"Confrimation Cross Button is not present");
+		check.assertTrue(areCompLoaded.get("isConfirmationHistoryTitlePresent"),
+				"Confirmation History Title story is not present");
+		boolean confirmationPopupPresent = home.clickOnConfirmationPopupCrossButton();
+		check.assertEquals(confirmationPopupPresent, false, "Confirmation Popup is Present");
+		String confirmationTilte = home.checkConfirmationTitle();
+		check.assertEquals(confirmationTilte, "Confirmation History", "Incorrect Confirmation Title Text");
+		boolean isGroupUserName = home.nameOfGroupUser();
+		check.assertTrue(isGroupUserName, "Incorrect Name");
+		String lastConfirmedDate = home.lastCofirmedDate();
+		System.out.println(lastConfirmedDate);
+		check.assertTrue(lastConfirmedDate.contains(home.systemGeneratedDate()), "Incorrect Group User Last Date");
+		check.assertAll();
+	}
+
+	@Test(description = "PVRV-5853", groups = "epmm2_regression", dataProvider = "VCMI", dataProviderClass = EPMMDataProvider.class)
+	public void verifyReviewAndConfirmForIncompleteGroupRoster(String userName, String password) throws Exception {
+		PMLoginPage loginPage = browser.getPMLoginPage();
+		home = getEPMHome(loginPage.loginToPM(userName, password, false));
+		boolean popup = home.clickOnReviewButtonForUnableToConfirmPopup();
+		check.assertEquals(popup, true, "Unable to Confirm Popup is not present");
+		Map<String, Boolean> areUnableToConfirmCompLoaded = home.areUnableToConfirmPopupCompsLoaded();
+		check.assertTrue(areUnableToConfirmCompLoaded.get("isUnableToConfirmCrossButtonPresent"),
+				"Unable To Confirm Popup Cross Button is not present");
+		check.assertTrue(areUnableToConfirmCompLoaded.get("isUnableToConfirmGoBackButtonPresent"),
+				"Unable To Confirm Popup Go Back Button is not present");
+		String popupText = home.captureUnableToConfirmPopupText();
+		check.assertEquals(popupText, "This action cannot be performed because you have incomplete provider profiles."
+				+ " Please update and complete your provider profiles to perform this action.", "Incorrect Popup Text");
+		String unableToConfirmPopupTitle = home.unableToConfirmTitleTest();
+		check.assertEquals(unableToConfirmPopupTitle, "Unable to Confirm", "Incorrect Popup Title Text");
+		boolean unableToConfirmPopupPresent = home.clickOnUnabelToConfirmPopupCrossButton();
+		check.assertEquals(unableToConfirmPopupPresent, false, "Unable To Confirm Popup is Present");
+		boolean unableToConfirmPresent = home.clickOnUnabelToConfirmGoBackButton();
+		check.assertEquals(unableToConfirmPresent, false, "Unable To Confirm Popup is Present");
+		check.assertAll();
+	}
+	
+	@Test(description = "PVRV-6067, PVRV-5973, PVRV-5974, PVRV-5975, PVRV-6042, PVRV-6066, PVRV-6043", groups = "epmm2_regression", dataProvider = "VCM", dataProviderClass = EPMMDataProvider.class)
+	public void verifyConfirmCancellationOfSnapshotGeneration(String userName, String password) throws Exception {
+		String[] grpName = new String[10];
+		PMLoginPage loginPage = browser.getPMLoginPage();
+		home = getEPMHome(loginPage.loginToPM(userName, password, false));
+		//if(home.cancelSnapshotRosterGeneration())
+		practiceGroup = home.openGroupDetails();
+		String businessName = practiceGroup.getLegalBusinessNameText();
+		practiceGroup.clickOnHome();
+		boolean popup = home.clickOnReviewAndConfirmButton();
+		check.assertEquals(popup, true, "Review and Confirm Popup is not present");
+		boolean reviewAndConfirmPopup = home.clickOnCrossButton();
+		check.assertEquals(reviewAndConfirmPopup, false, "Review and confirm popup is Present");
+		boolean snapshotNotificationBanner = home.clickOnContinueButton();
+		check.assertTrue(snapshotNotificationBanner, "Roster Banner is not Present");
+		boolean snapshotModal = home.clickOnSnapshotBannerCancelButton();
+		check.assertTrue(snapshotModal, "Snapshot Modal is not Present");
+		Map<String, Object> popupContentStatus = home.areSnapshotPopupContentLoaded();
+		String snapshotTitle = (String) popupContentStatus.get("checkSnapshotPopupTitle");
+		String cancelSnapshotMessage = (String) popupContentStatus.get("checkCancelSnapshotMessage");
+		String cancelConfirmRosterMessage = (String) popupContentStatus.get("checkCancelConfirmRosterMessage");
+		check.assertEquals(snapshotTitle, "Cancel Confirmed Roster?", "Incorrect Title");
+		check.assertEquals(cancelSnapshotMessage, "By canceling your confirmed roster, participating organizations will not be able to access your updated data.", "Incorrect Snapshot Message");
+		check.assertEquals(cancelConfirmRosterMessage, "Are you sure you want to cancel your confirmed roster?", "Incorrect Confirm Roster Message");
+		boolean yesButtonOfCancelSnapshotModal = (boolean) popupContentStatus.get("isYesButtonOfCancelSnapshotModal");
+		boolean goBackSnapshotModallBtn = (boolean) popupContentStatus.get("isGoBackSnapshotModallBtn");
+		check.assertTrue(yesButtonOfCancelSnapshotModal, "Yes, Continue Button is not present");
+		check.assertTrue(goBackSnapshotModallBtn, "Go Back Button is not present");
+		boolean notificationBanner= home.clickOnGoBackButtonOfSnapshotModal();
+		check.assertTrue(notificationBanner, "Notification Banner is not present");
+		boolean isReviewAndConfirmBtnEnabled = home.isReviewAndConfirmButtonEnabled();
+		check.assertFalse(isReviewAndConfirmBtnEnabled, "Review And Confirm Button is Not Disabled");
+		check.assertTrue(home.checkSnapshotNotificationBannerText().contains("Your confirmed roster is currently being generated. "
+				+ "Any changes made in your profile while roster generation is in progress will not be saved. Please refresh the page in about"),
+			     "Incorect Snapshot Notification Banner Text");
+		check.assertTrue(home.isSnapshotCancelBtnPresent(), "Snapshot Cancel Button is Not Present");
+		DBUtil dbUtil = new DBUtil();
+		dbUtil.changeRosterStatus(businessName);	
+		boolean snapshotGenerationBanner = home.clickOnOurProvider();
+		Map<String, Object> loadedComp= home.areRosterModalComponentLoaded();
+		String modalTitle = (String) loadedComp.get("rosterModalTitle");
+		check.assertEquals(modalTitle, "Roster Generation in Progress", "Incorrect Modal Title");
+		String modalText = (String) loadedComp.get("rosterModalBodyText");
+		check.assertEquals(modalText, "Your confirmed roster is currently being generated. You will not be able to save changes made to this page.", "Incorrect Modal Text");
+		boolean crossBtn = (boolean) loadedComp.get("rosterModalCrossButton");
+		check.assertTrue(crossBtn, "Cross Button is Not Present");
+		boolean okBtn = (boolean) loadedComp.get("rosterModalOkButton");
+		check.assertTrue(okBtn, "Ok Button is Not Present");
+		home.clickOnOkButtonOfSnapshotInProgressModal();
+		check.assertTrue(snapshotGenerationBanner, "Snapshot Generation Banner is Not present");
+		home.clickOnFullNameCheckbox();
+		check.assertFalse(home.selectDropdown(), "User is Not Blocked From Page Modification as Go button is Enabled");
+		boolean rosterModal = home.clickOnGroupDetails();
+		check.assertFalse(rosterModal, "Roster Modal is Present");
+		grpName[0] = practiceGroup.getGroupName();
+		int numberOfRecords = 1;
+		FileGenerator generator = new FileGenerator();
+		List<LinkedHashMap<String, String>> locName = generator.generateCSV(numberOfRecords, 0, "location", grpName);
+		addPracticeLocation = home.openAddPracticeLocations();
+		proViewDriver.waitForNoLoadingBlock();
+		addPracticeLocation.clickOnOkButtonOfSnapshotInProgressModal();
+		addPracticeLocation.fileupload(FileGenerator.FILE_PATH);
+		Assert.assertTrue(!addPracticeLocation.getUploadGuidelineStatus().values().contains(false));
+		boolean acceptFileBtn = addPracticeLocation.confirmUploadWhenSnapshotInProgress();
+		check.assertFalse(acceptFileBtn, "Accept File Buttton is Enabled");
+		Map<String, Object> rosterPopupComp= addPracticeLocation.areRosterPopupComponentLoaded();
+		String rosterText = (String) rosterPopupComp.get("rosterPopupBodyText");
+		check.assertTrue(rosterText.contains("Your group confirmed roster is currently being generated. Please allow about"), "Incorrect Rsoter Modal Text");
+		boolean rosterCrossBtn = (boolean) rosterPopupComp.get("rosterPopupCrossBtn");
+		check.assertTrue(rosterCrossBtn, "Roster Popup Cross Button is Not Present");
+		boolean rosterOkBtn = (boolean) rosterPopupComp.get("rosterPopupOkBtn");
+		check.assertTrue(rosterOkBtn, "Roster Popup Ok Button is Not Present");
+		addPracticeLocation.clickOnOkButtonOfSnapshotInProgressModal();
+		ourPracticeLocations = home.openOurPracticeLocations();
+		ourPracticeLocations.clickOnOkButtonOfSnapshotInProgressModal();
+        practiceLocationDetails = ourPracticeLocations.clickOnLocationName();
+        practiceLocationDetails.clickOnOkButtonOfSnapshotInProgressModal();
+        practiceLocationDetails.openProviderAssignedTab();
+        ourProviderLocations = practiceLocationDetails.clickProviderName();
+        practiceLocationDetails.clickOnOkButtonOfSnapshotInProgressModal();
+        check.assertTrue(ourProviderLocations.clickOnNoAuthorizedPlansBtn(),"No Authorized Plans Button is Not Selected");
+        check.assertFalse(ourProviderLocations.isSaveButtonEnabled(), "Save Button is Not Disabled");
+		boolean rosterModalInProgress = home.clickOnOurTeam();
+		check.assertFalse(rosterModalInProgress, "In Progress Roster Modal is Present");
+		boolean snackBarAfterSnapshot= home.clickOnYesButtonOfSnapshotModal();
+		check.assertTrue(snackBarAfterSnapshot, "Snack Bar After Clicking On The Yes Button of Snapshot Modal is Not present");
+		home.refreshBrowser();
+		check.assertFalse(home.isSanpshotNotificationBannerPresent(), "Sanpshot Notification Banner is Present");
+		check.assertTrue(home.isReviewAndConfirmButtonEnabled(), "Review And Confirm Button is Not Enabled");
+		check.assertAll();
+	}
+	
+	//EPMM 1.0 to epmm 2.0 migrated tests
+	@Test(description = "Verify that the \"Help\" button is removed from header and footer of Login page", groups = "epmm2_regression")
+	public void VerifyHelpLinkNotPresentOnLoginPage() {
+		EPMHome ePMHomePage = browser.getEPMHome(); 
+		proViewDriver.getDriver().get(configuration.getEPMInstanceURL());
+		proViewDriver.waitForNoLoadingBlock(4);
+		check.assertFalse(ePMHomePage.isHelpPresentOnFooter(), "Help is present in Footer of login page");
+		check.assertFalse(ePMHomePage.isHelpPresentOnHeader(), "Help is present in Header  of login page");
+		check.assertAll();
+	}
+
+	@Test(description = "Verify that the \"Contact CAQH\" link is removed from the header and footer from Login page", groups = "epmm2_regression")
+	public void VerifyContactCAQHLinkNotPresentOnLoginPage() {
+		EPMHome ePMHomePage = browser.getEPMHome();  
+		proViewDriver.getDriver().get(configuration.getEPMInstanceURL());
+		check.assertFalse(ePMHomePage.isContactCAQHPresent(), "Contact CAQH is present under Setting menu");
+		check.assertAll();
+	}
+
+	@Test(description = "Verify that the \"Help\" button is removed from header and footer of all EPMM pages", groups = "epmm2_regression", dataProvider = "VCM", dataProviderClass = EPMMDataProvider.class)
+	public void VerifyHelpLinkNotPresentOnHeaderAndFootr(String userName, String password) {
+		EPMHome ePMHomePage = browser.getEPMHome();  // PM Basic user Login
+		PMLoginPage loginPage = browser.getPMLoginPage(); //
+		loginPage.loginToPM(userName, password);
+		check.assertFalse(ePMHomePage.isHelpPresentOnFooter(), "Help is present in Footer");
+		check.assertFalse(ePMHomePage.isHelpPresentOnHeader(), "Help is present in Header");
+		check.assertAll();
+		ePMHomePage.signout();
+	}
+
+	@Test(description = "Verify that the \"Resource\" button is removed from all EPMM pages", groups = "epmm2_regression", dataProvider = "VCM", dataProviderClass = EPMMDataProvider.class)
+	public void VerifyResourceLinkIsNotPresentOnSettingMenu(String userName, String password) {
+		EPMHome ePMHomePage = browser.getEPMHome(); 
+		PMLoginPage loginPage = browser.getPMLoginPage(); 
+		loginPage.loginToPM(userName, password);
+		proViewDriver.waitForNoLoadingBlock(3);
+		check.assertFalse(ePMHomePage.isResourcePresent(), "Resource is present under Setting menu");
+		check.assertAll();
+		ePMHomePage.signout();
+	}
+
+	@Test(description = "Verify that the \"Contact CAQH\" link is removed from the header and footer of all EPMM pages", groups = "epmm2_regression", dataProvider = "VCM", dataProviderClass = EPMMDataProvider.class)
+	public void VerifyContactCAQHLinkIsNotPresentOnSettingMenu(String userName, String password) {
+		EPMHome ePMHomePage = browser.getEPMHome();  
+		PMLoginPage loginPage = browser.getPMLoginPage(); 
+		loginPage.loginToPM(userName, password);
+		check.assertFalse(ePMHomePage.isContactCAQHPresent(), "Resource is present under Setting menu");
+		check.assertAll();
+		ePMHomePage.signout();
+	}
+
+	// Test cases for PVRV-1238
+	@Test(description = "Verify the functionality of \"Terms of Service\" link in the footer.", groups = "epmm2_regression", dataProvider = "VCM", dataProviderClass = EPMMDataProvider.class)
+	public void VerifyTermOfServiceLink(String userName, String password) {
+		EPMHome ePMHomePage = browser.getEPMHome(); 
+		PMLoginPage loginPage = browser.getPMLoginPage(); //
+		// pmHomePage.getHomePage();
+		loginPage.loginToPM(userName, password);
+		ePMHomePage.clickOnTermOfServiceLink();
+		ePMHomePage.switchToChildWindow();
+		String parentWindow = ePMHomePage.switchToChildWindow();
+		check.assertTrue(proViewDriver.getTitle().equalsIgnoreCase("Terms Of Service | CAQH"));
+		proViewDriver.close();
+		ePMHomePage.switchToParentWindow(parentWindow);
+		check.assertAll();
+		ePMHomePage.signout();
+
+	}
+
+	@Test(description = "Verify the functionality of \"Privacy Policy\" link in the footer", groups = "epmm2_regression", dataProvider = "VCM", dataProviderClass = EPMMDataProvider.class)
+	public void VerifyPrivacyPolicyLink(String userName, String password) {
+		EPMHome ePMHomePage = browser.getEPMHome();  // PM Basic user Login
+		PMLoginPage loginPage = browser.getPMLoginPage(); //
+		// pmHomePage.getHomePage();
+		loginPage.loginToPM(userName, password);
+		ePMHomePage.clicknOnPrivacyPolicyLink();
+		ePMHomePage.switchToChildWindow();
+		String parentWindow = ePMHomePage.switchToChildWindow();
+		check.assertTrue(proViewDriver.getTitle().equalsIgnoreCase("caqh privacy policy | CAQH"));
+		proViewDriver.close();
+		ePMHomePage.switchToParentWindow(parentWindow);
+		check.assertAll();
+		ePMHomePage.signout();
+	}
+
+	@Test(description = "Verify the functionality of the \"CAQH.ORG\" link in the footer", groups = "epmm2_regression", dataProvider = "VCM", dataProviderClass = EPMMDataProvider.class)
+	public void VerifyCAQHIDLink(String userName, String password) {
+		EPMHome ePMHomePage = browser.getEPMHome();  // PM Basic user Login
+		PMLoginPage loginPage = browser.getPMLoginPage(); //
+		//pmHomePage.getHomePage();
+		loginPage.loginToPM(userName, password);
+		ePMHomePage.clickOnCAQHOrgLink();
+		String parentWindow = ePMHomePage.switchToChildWindow();
+		check.assertTrue(proViewDriver.getTitle().equalsIgnoreCase("CAQH - Streamlining the Business of Healthcare"));
+		proViewDriver.close();
+		ePMHomePage.switchToParentWindow(parentWindow);
+		check.assertAll();
+		ePMHomePage.signout();
+	}
+
+	// TODO
+
+	@Test(description = "Verify the alignment of the header section of all EPMM pages", groups = "epmm2_regression", dataProvider = "VCM", dataProviderClass = EPMMDataProvider.class)
+	public void VerifyHeaderAlignmentAndPositioningOnHomePage(String userName, String password) {
+		List<String> header = new ArrayList<String>();
+		List<String> itmes = new ArrayList<String>();
+		header.add("Home");
+		header.add("Our Group");
+		header.add("Our Locations");
+		header.add("Our Providers");
+		header.add("Our Plans");
+		EPMHome ePMHomePage = browser.getEPMHome();  
+		PMLoginPage loginPage = browser.getPMLoginPage(); //
+		// pmHomePage.getHomePage();
+		loginPage.loginToPM(userName, password);
+		itmes = ePMHomePage.getMenuItems();
+		for (int i = 0; i < itmes.size(); i++) {
+			check.assertTrue(itmes.get(i).equalsIgnoreCase(header.get(i)));
+		}
+		check.assertAll();
+		ePMHomePage.signout();
+	}
+
+	// PVRV-1361
+
+	@Test(description = "Verify the updated design of the home page", groups = "epmm2_regression", dataProvider = "VCM", dataProviderClass = EPMMDataProvider.class)
+	public void verifyEPMMHomePageDesing(String userName, String password) {
+		EPMHome ePMHomePage = browser.getEPMHome();  
+		PMLoginPage loginPage = browser.getPMLoginPage(); //
+		// pmHomePage.getHomePage();
+		loginPage.loginToPM(userName, password);
+		check.assertTrue(ePMHomePage.isLegalbusinessnamePresent());
+		check.assertTrue(ePMHomePage.isManagePracticeLabelPresent());
+		check.assertTrue(ePMHomePage.isAddPracticeLocationLablePresent());
+		check.assertTrue(ePMHomePage.isAdddProviderlablePresent());
+		check.assertTrue(ePMHomePage.isAssignProviderLablePresent());
+		check.assertTrue(ePMHomePage.isManageLocationDataLablePresent());
+		check.assertTrue(ePMHomePage.isOurPracticeCardPresent());
+		check.assertTrue(ePMHomePage.isOurProviderCardPresent());
+		check.assertTrue(ePMHomePage.isViewPracticeLinkPresent());
+		check.assertTrue(ePMHomePage.isViewProviderLinkPresent());
+		check.assertTrue(ePMHomePage.isAddPracticeLinkPresent());
+		check.assertTrue(ePMHomePage.isAddProviderLinkPresent());
+		check.assertTrue(ePMHomePage.isPracticeCountPresent());
+		check.assertTrue(ePMHomePage.isProviderCountPresent());
+		check.assertTrue(ePMHomePage.isImagePresentOnPraticeCard());
+		check.assertTrue(ePMHomePage.isImagePresentOnProviderCard());
+		check.assertTrue(ePMHomePage.isPlusIconPresentOnPracticeCard());
+		check.assertTrue(ePMHomePage.isPlusIconPresentOnProviderCard());
+		check.assertAll();
+		ePMHomePage.signout();
+	}
+
+	@Test(description = " Verify the contents of the EPMM homepage", groups = "epmm2_regression", dataProvider = "VCM", dataProviderClass = EPMMDataProvider.class)
+	public void VerifyEPMMHomePageContent(String userName, String password) {
+		String actLegalName = null;
+		EPMHome ePMHomePage = browser.getEPMHome();   // PM Basic user Login
+		PMLoginPage loginPage = browser.getPMLoginPage(); //
+		// pmHomePage.getHomePage();
+		home = getEPMHome(loginPage.loginToPM(userName, password, false));
+		practiceGroup = home.openGroupDetails();
+		if (practiceGroup.isLegalBusinessNameTextFieldPresent()) {
+			actLegalName = practiceGroup.getLegalBusinessNameForPM();
+		} else {
+			actLegalName = practiceGroup.getLegalBusinessNameForDU(); // TODO change locator for LegarBussiness for
+		}
+		ePMHomePage.backHomepage();
+		String expLegalName = ePMHomePage.getLegalBusinessName();
+		check.assertEquals(expLegalName, actLegalName,
+				"Legal business name not matches " + ePMHomePage.getLegalBusinessName());
+		int actLocCnt = ePMHomePage.getActualLocationCnt();
+		int expLocCnt = ePMHomePage.getLocationCount();
+		check.assertEquals(expLocCnt, actLocCnt);
+		ePMHomePage.backHomepage();
+		int actProCnt = ePMHomePage.getActualProviderCnt();
+		int expProCnt = ePMHomePage.getProviderCount();
+		check.assertEquals(expProCnt, actProCnt);
+		check.assertAll();
+		ePMHomePage.signout();
+	}
+
+	@Test(description = "Verify the links provided in the Practice Location component and Providers component", groups = {
+			"epmm2_regression","ePmSmoke" }, dataProvider = "VCM", dataProviderClass = EPMMDataProvider.class)
+	public void VerifyViewAndAddLinkOnEPMHomePage(String userName, String password) {
+		EPMHomePage ePMHomePage = browser.getEPMHomePage(); // PM Basic user Login
+		PMLoginPage loginPage = browser.getPMLoginPage(); //
+		loginPage.loginToPM(userName, password);
+		check.assertTrue(ePMHomePage.isViewPracticeLinkPresent());
+		check.assertTrue(ePMHomePage.isViewProviderLinkPresent());
+		check.assertTrue(ePMHomePage.isAddPracticeLinkPresent());
+		check.assertTrue(ePMHomePage.isAddProviderLinkPresent());
+		ePMHomePage.clickOnViewPracticeLocationLink();
+		check.assertEquals(proViewDriver.getTitle(), "CAQH ProView - Practice Library");
+		ePMHomePage.backHomepage();
+		ePMHomePage.clickOnAddPracticeLink();
+		check.assertEquals(proViewDriver.getTitle(), "CAQH ProView - Add Practice Location");
+		ePMHomePage.backHomepage();
+		ePMHomePage.clickOnViewProviderLink();
+		check.assertEquals(proViewDriver.getTitle(), "CAQH ProView -");
+		ePMHomePage.backHomepage();
+		ePMHomePage.clickOnAddProviderLink();
+		check.assertEquals(proViewDriver.getTitle(), "CAQH ProView - Add Providers");
+		ePMHomePage.backHomepage();
+		check.assertAll();
+		ePMHomePage.signOut();
+	}
+
+	
+
+}
